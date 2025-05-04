@@ -23,7 +23,7 @@ note_freq_base = {
 octave_multipliers = {'low': 0.5, 'medium': 1.0, 'high': 2.0}
 
 # Base URL for raw images from your GitHub repository
-base_url = "https://raw.githubusercontent.com/surajdwivedi0307/surajmetronome/main/images"
+base_url = "https://raw.githubusercontent.com/surajdwivedi0307/surajmetronome/main/"
 
 def generate_note_wave_flute_natural_vibrato(note, duration, octave='medium', fade_duration=0.01,
                                              vibrato_depth=0.001, vibrato_speed=2.5, add_swell=True):
