@@ -8,6 +8,8 @@ import io
 import os
 from scipy.io import wavfile
 from PIL import Image
+import requests
+from io import BytesIO
 
 # Settings
 sample_rate = 44100
@@ -19,7 +21,9 @@ note_freq_base = {
     'P': 392.00, 'D': 440.00, 'N': 493.88
 }
 octave_multipliers = {'low': 0.5, 'medium': 1.0, 'high': 2.0}
-image_folder = "/Users/surajdwivedi/Downloads/surajmetronome"
+
+# Base URL for raw images from your GitHub repository
+base_url = "https://raw.githubusercontent.com/surajdwivedi0307/surajmetronome/main/images"
 
 def generate_note_wave_flute_natural_vibrato(note, duration, octave='medium', fade_duration=0.01,
                                              vibrato_depth=0.001, vibrato_speed=2.5, add_swell=True):
@@ -102,16 +106,14 @@ def display_note_progress(parsed_sequence, bpm):
         note_display.markdown(f"## 🎵 Playing: **{note_name}**")
 
         # Display image for current note
-        # Display image for current note
-if note_entry != '-':
-    img_url = f"{base_url}/bansuri_notes_{note_entry}.png"
-    
-    response = requests.get(img_url)
-    if response.status_code == 200:
-        image = Image.open(BytesIO(response.content))
-        image_display.image(image, caption=f"{note_entry} fingering", use_container_width=True)
-    else:
-        image_display.markdown("⚠️ Image for note not found.")
+        if note_entry != '-':
+            img_url = f"{base_url}/bansuri_notes_{note_entry}.png"
+            response = requests.get(img_url)
+            if response.status_code == 200:
+                image = Image.open(BytesIO(response.content))
+                image_display.image(image, caption=f"{note_entry} fingering", use_container_width=True)
+            else:
+                image_display.markdown("⚠️ Image for note not found.")
         else:
             image_display.empty()
 
