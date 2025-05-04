@@ -102,13 +102,16 @@ def display_note_progress(parsed_sequence, bpm):
         note_display.markdown(f"## 🎵 Playing: **{note_name}**")
 
         # Display image for current note
-        if note_entry != '-':
-            img_path = os.path.join(image_folder, f"bansuri_notes_{note_entry}.png")
-            if os.path.exists(img_path):
-                image = Image.open(img_path)
-                image_display.image(image, caption=f"{note_entry} fingering", use_container_width=True)
-            else:
-                image_display.markdown("⚠️ Image for note not found.")
+        # Display image for current note
+if note_entry != '-':
+    img_url = f"{base_url}/bansuri_notes_{note_entry}.png"
+    
+    response = requests.get(img_url)
+    if response.status_code == 200:
+        image = Image.open(BytesIO(response.content))
+        image_display.image(image, caption=f"{note_entry} fingering", use_container_width=True)
+    else:
+        image_display.markdown("⚠️ Image for note not found.")
         else:
             image_display.empty()
 
