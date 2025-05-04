@@ -1,2 +1,7 @@
 sounddevice
 pyaudio
+streamlit
+numpy
+scipy
+Pillow
+requests
