@@ -82,16 +82,14 @@ def bpm_to_duration(bpm, note_length=1):
     return (60.0 / bpm) * note_length
 
 def generate_audio(note, octave, duration):
+    # Handle rest (no audio for '-')
+    if note == '-':
+        return np.zeros(int(sample_rate * duration))  # Return silent audio (zero amplitude)
+
     frequency = note_freq_base[note] * octave_multipliers[octave]
     t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
     audio_data = np.sin(2 * np.pi * frequency * t)
     return audio_data
-
-def play_audio(audio_data):
-    byte_io = io.BytesIO()
-    sf.write(byte_io, audio_data, sample_rate, format='WAV')
-    byte_io.seek(0)
-    return byte_io
 
 def display_note_animation(parsed_sequence, bpm):
     container_note = st.empty()
@@ -102,9 +100,6 @@ def display_note_animation(parsed_sequence, bpm):
     total_notes = len(parsed_sequence)
     total_duration = sum(bpm_to_duration(bpm, d) for _, d, _ in parsed_sequence)
     elapsed = 0.0
-
-    # Initializing audio container
-    audio_player = st.empty()
 
     for idx, (note, multiplier, octave) in enumerate(parsed_sequence):
         if stop_flag.is_set():
@@ -137,10 +132,13 @@ def display_note_animation(parsed_sequence, bpm):
             progress = (elapsed + elapsed_time) / total_duration
             container_progress.progress(min(progress, 1.0))
 
-            # Generate and play Audio for Current Note (Only update the player)
+            # Play audio for the current note
             audio_data = generate_audio(note, octave, duration)
-            audio_io = play_audio(audio_data)
-            audio_player.audio(audio_io, format='audio/wav', start_time=0)
+            audio_file = io.BytesIO()
+            sf.write(audio_file, audio_data, sample_rate, format="WAV")
+            audio_file.seek(0)
+
+            st.audio(audio_file, format='audio/wav', use_container_width=True)
 
             time.sleep(0.05)
 
