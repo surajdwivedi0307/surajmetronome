@@ -101,19 +101,26 @@ def display_note_animation(parsed_sequence, bpm):
             next_n, _, next_octave = parsed_sequence[idx + 1]
             next_note_name = f"{next_n} ({next_octave})" if next_n != '-' else "Rest"
 
-        container_note.markdown(f"<div class='note-box'>🎵 Now Playing: {note_name} &nbsp;&nbsp; ⏱️ {duration:.2f}s</div>", unsafe_allow_html=True)
-        container_next.markdown(f"##### 🔜 Next: `{next_note_name}`" if next_note_name else "", unsafe_allow_html=True)
-
-        if note in note_freq_base:
-            image_url = f"{image_base_url}bansuri_notes_{note}.png"
-            container_image.image(image_url, caption=f"{note} fingering", use_container_width=True)
-        else:
-            container_image.empty()
-
+        # Dynamic label showing elapsed and remaining time
+        remaining_time = duration
         start_time = time.time()
         while time.time() - start_time < duration:
-            progress = (elapsed + (time.time() - start_time)) / total_duration
+            elapsed_time = time.time() - start_time
+            remaining_time = duration - elapsed_time
+            container_note.markdown(
+                f"<div class='note-box'>🎵 Now Playing: {note_name} &nbsp;&nbsp; ⏱️ {elapsed_time:.2f}s / {duration:.2f}s left</div>", 
+                unsafe_allow_html=True)
+            container_next.markdown(f"##### 🔜 Next: `{next_note_name}`" if next_note_name else "", unsafe_allow_html=True)
+
+            if note in note_freq_base:
+                image_url = f"{image_base_url}bansuri_notes_{note}.png"
+                container_image.image(image_url, caption=f"{note} fingering", use_container_width=True)
+            else:
+                container_image.empty()
+
+            progress = (elapsed + elapsed_time) / total_duration
             container_progress.progress(min(progress, 1.0))
+
             time.sleep(0.05)
 
         elapsed += duration
