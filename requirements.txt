@@ -3,5 +3,3 @@ numpy
 scipy
 Pillow
 requests
-pydub
-simpleaudio
