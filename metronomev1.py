@@ -114,7 +114,15 @@ def display_note_animation(parsed_sequence, bpm):
     sf.write(audio_file, full_audio_data, sample_rate, format="WAV")
     audio_file.seek(0)
 
-    # Display progress and animation for each note
+    return audio_file, parsed_sequence, total_duration
+
+def play_audio_and_animate(audio_file, parsed_sequence, total_duration, bpm):
+    container_note = st.empty()
+    container_next = st.empty()
+    container_image = st.empty()
+    container_progress = st.empty()
+
+    elapsed = 0.0
     start_time = time.time()  # Start time for synchronization
     for idx, (note, multiplier, octave) in enumerate(parsed_sequence):
         if stop_flag.is_set():
@@ -123,7 +131,7 @@ def display_note_animation(parsed_sequence, bpm):
         duration = bpm_to_duration(bpm, multiplier)
         note_name = f"{note} ({octave})" if note != '-' else "Rest"
         next_note_name = ""
-        if idx + 1 < total_notes:
+        if idx + 1 < len(parsed_sequence):
             next_n, _, next_octave = parsed_sequence[idx + 1]
             next_note_name = f"{next_n} ({next_octave})" if next_n != '-' else "Rest"
 
@@ -180,7 +188,13 @@ with col1:
         if not sequence:
             st.error("Invalid note sequence.")
         else:
-            display_note_animation(sequence, bpm)
+            # Show 'Wait' button and process the audio
+            with st.spinner('Processing your melody, please wait...'):
+                audio_file, parsed_sequence, total_duration = display_note_animation(sequence, bpm)
+
+            # After processing, show the 'Ready' button
+            if st.button("🎶 Ready to Play"):
+                play_audio_and_animate(audio_file, parsed_sequence, total_duration, bpm)
 
 with col2:
     if st.button("🎲 Generate & Play Random Melody"):
@@ -188,7 +202,13 @@ with col2:
         melody = generate_random_melody()
         st.success(f"Random Melody: `{melody}`")
         sequence = parse_notes_input(melody)
-        display_note_animation(sequence, bpm)
+        # Show 'Wait' button and process the audio
+        with st.spinner('Processing your melody, please wait...'):
+            audio_file, parsed_sequence, total_duration = display_note_animation(sequence, bpm)
+
+        # After processing, show the 'Ready' button
+        if st.button("🎶 Ready to Play"):
+            play_audio_and_animate(audio_file, parsed_sequence, total_duration, bpm)
 
 if st.button("⏹️ Stop Playback"):
     stop_flag.set()
