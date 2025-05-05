@@ -106,7 +106,7 @@ def display_note_animation(parsed_sequence, bpm):
 
         if note in note_freq_base:
             image_url = f"{image_base_url}bansuri_notes_{note}.png"
-            container_image.image(image_url, caption=f"{note} fingering", use_column_width=True)
+            container_image.image(image_url, caption=f"{note} fingering", use_container_width=True)
         else:
             container_image.empty()
 
