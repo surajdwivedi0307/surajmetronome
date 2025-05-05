@@ -3,9 +3,10 @@ import numpy as np
 import random
 import time
 import io
-import threading
+import os
 from scipy.io import wavfile
 from PIL import Image
+import threading
 
 # Settings
 sample_rate = 44100
@@ -82,16 +83,20 @@ def bpm_to_duration(bpm, note_length=1):
 def play_audio_in_streamlit(audio_data):
     buffer = io.BytesIO()
     wavfile.write(buffer, sample_rate, audio_data)
-    st.session_state.audio_buffer = buffer.getvalue()  # Save audio buffer in session state
+    st.audio(buffer.getvalue(), format='audio/wav')
+    return buffer
 
 # Update the image folder to GitHub raw URLs
 image_base_url = "https://raw.githubusercontent.com/surajdwivedi0307/surajmetronome/main/images/"
 
-def display_note_progress(parsed_sequence, bpm):
+def display_note_progress(parsed_sequence, bpm, audio_data):
     note_display = st.empty()
     timer_display = st.empty()
     image_display = st.empty()
     total_notes = len(parsed_sequence)
+
+    total_duration = sum(bpm_to_duration(bpm, duration) for _, duration, _ in parsed_sequence)
+    elapsed_time = 0.0
 
     for idx, (note_entry, multiplier, octave) in enumerate(parsed_sequence):
         if stop_flag.is_set():
@@ -99,26 +104,26 @@ def display_note_progress(parsed_sequence, bpm):
 
         duration = bpm_to_duration(bpm, multiplier)
         note_name = f"{note_entry} ({octave})" if note_entry != '-' else "Rest"
-
-        timer_display.markdown(f"### ⏱️ Duration: {duration:.2f} seconds")
+        
+        # Update Timer and Note Display
+        elapsed_time += duration
+        timer_display.markdown(f"### ⏱️ Duration: {elapsed_time:.2f}/{total_duration:.2f} seconds")
         note_display.markdown(f"## 🎵 Playing: **{note_name}**")
 
-        # Display image for current note
+        # Display Image for Current Note
         if note_entry != '-':
             img_url = f"{image_base_url}bansuri_notes_{note_entry}.png"
             image_display.image(img_url, caption=f"{note_entry} fingering", use_container_width=True)
         else:
             image_display.empty()
 
-        # Split sleep into small steps to allow stop
+        # Sleep for the duration of the note
         step = 0.1  # seconds
-        elapsed = 0.0
-        while elapsed < duration:
+        while elapsed_time < total_duration:
             if stop_flag.is_set():
                 return
-            time.sleep(min(step, duration - elapsed))
-            elapsed += step
-
+            time.sleep(min(step, duration - elapsed_time))
+            elapsed_time += step
 
 def play_notes_sequence(parsed_sequence, bpm=60):
     full_wave = np.array([], dtype=np.int16)
@@ -167,14 +172,8 @@ with col1:
         parsed_user = parse_notes_input(user_input)
         audio_data = play_notes_sequence(parsed_user, bpm_input_user)
         play_audio_in_streamlit(audio_data)
-        
-        # Trigger the audio player after it's ready
-        if 'audio_buffer' in st.session_state:
-            st.audio(st.session_state.audio_buffer, format='audio/wav')
-        
-        display_note_progress(parsed_user, bpm_input_user)
+        display_note_progress(parsed_user, bpm_input_user, audio_data)
 
-        # Provide the option to download the audio
         buffer = io.BytesIO()
         wavfile.write(buffer, sample_rate, audio_data)
         st.download_button("💽 Download WAV", data=buffer.getvalue(),
@@ -193,14 +192,8 @@ with col2:
         parsed_random = parse_notes_input(random_melody)
         audio_data = play_notes_sequence(parsed_random, bpm_input_user)
         play_audio_in_streamlit(audio_data)
-        
-        # Trigger the audio player after it's ready
-        if 'audio_buffer' in st.session_state:
-            st.audio(st.session_state.audio_buffer, format='audio/wav')
-        
-        display_note_progress(parsed_random, bpm_input_user)
+        display_note_progress(parsed_random, bpm_input_user, audio_data)
 
-        # Provide the option to download the audio
         buffer = io.BytesIO()
         wavfile.write(buffer, sample_rate, audio_data)
         st.download_button("💽 Download Random Melody", data=buffer.getvalue(),
