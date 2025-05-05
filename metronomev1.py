@@ -3,8 +3,10 @@ import numpy as np
 import random
 import time
 import io
+import base64
 from PIL import Image
 import soundfile as sf
+import streamlit.components.v1 as components
 
 # Settings
 sample_rate = 44100
@@ -15,15 +17,15 @@ note_freq_base = {
 octave_multipliers = {'low': 0.5, 'medium': 1.0, 'high': 2.0}
 image_base_url = "https://raw.githubusercontent.com/surajdwivedi0307/surajmetronome/main/images/"
 
-# Streamlit UI setup
+# UI Styling
 st.set_page_config(layout="wide", page_title="Flute Metronome", page_icon="🎶")
 st.markdown("""
     <style>
         .note-box {
-            padding: 1.2rem;
+            padding: 1rem;
             margin-bottom: 1rem;
             background: #eef6f8;
-            border-radius: 12px;
+            border-radius: 10px;
             border-left: 6px solid #3498db;
             font-size: 20px;
             font-weight: bold;
@@ -34,20 +36,10 @@ st.markdown("""
         }
     </style>
 """, unsafe_allow_html=True)
+
 st.title("🎶 Indian Flute Visual Metronome + Melody Generator")
 
-# --- Session State ---
-for key, default in {
-    "audio_ready": False,
-    "play_requested": False,
-    "audio_file": None,
-    "sequence": [],
-    "bpm": 60
-}.items():
-    if key not in st.session_state:
-        st.session_state[key] = default
-
-# --- Utility Functions ---
+# Utility functions
 def parse_notes_input(note_string):
     parsed_sequence = []
     entry = note_string.strip()
@@ -84,29 +76,33 @@ def generate_audio(note, octave, duration):
         return np.zeros(int(sample_rate * duration))
     frequency = note_freq_base[note] * octave_multipliers[octave]
     t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
-    return np.sin(2 * np.pi * frequency * t)
+    audio_data = np.sin(2 * np.pi * frequency * t)
+    return audio_data
 
-def generate_audio_and_prepare_playback(parsed_sequence, bpm):
-    st.session_state.bpm = bpm
-    st.session_state.sequence = parsed_sequence
-
-    full_audio_data = np.concatenate([
-        generate_audio(note, octave, bpm_to_duration(bpm, mult))
-        for note, mult, octave in parsed_sequence
-    ])
+def create_audio_file(sequence, bpm):
+    full_audio_data = np.array([])
+    for note, mult, octave in sequence:
+        duration = bpm_to_duration(bpm, mult)
+        full_audio_data = np.concatenate((full_audio_data, generate_audio(note, octave, duration)))
     audio_file = io.BytesIO()
     sf.write(audio_file, full_audio_data, sample_rate, format="WAV")
     audio_file.seek(0)
-
-    st.session_state.audio_file = audio_file
-    st.session_state.audio_ready = True
-    st.session_state.play_requested = False
-    st.success("✅ Audio is ready. Click the '🎶 Ready to Play' button below.")
+    return audio_file
 
 def playback_and_animation():
     sequence = st.session_state.sequence
     bpm = st.session_state.bpm
     total_duration = sum(bpm_to_duration(bpm, d) for _, d, _ in sequence)
+
+    # Embed autoplay audio
+    audio_bytes = st.session_state.audio_file.read()
+    audio_b64 = base64.b64encode(audio_bytes).decode()
+    audio_html = f"""
+    <audio autoplay>
+        <source src="data:audio/wav;base64,{audio_b64}" type="audio/wav">
+    </audio>
+    """
+    components.html(audio_html, height=0)
 
     container_note = st.empty()
     container_image = st.empty()
@@ -129,7 +125,6 @@ def playback_and_animation():
         elapsed += duration
 
     container_progress.progress(1.0)
-    st.audio(st.session_state.audio_file, format='audio/wav')
 
 def generate_random_melody(length=12):
     notes = ['S', 'R', 'G', 'M', 'P', 'D', 'N', '-']
@@ -144,35 +139,35 @@ def generate_random_melody(length=12):
     return melody
 
 # --- UI Layout ---
-bpm = st.slider("🎚️ Set BPM (Speed)", min_value=40, max_value=180, value=st.session_state.bpm)
-note_input = st.text_input("✍️ Enter melody sequence (e.g., SGRG_RSN):", "DS>DP,GRSR,G-GR,GPD_")
+bpm = st.slider("🎚️ Set BPM", min_value=40, max_value=180, value=60)
+note_input = st.text_input("✍️ Enter melody (e.g., SGRG_RSN):", "DS>DP,GRSR,G-GR,GPD_")
 
 col1, col2 = st.columns([1, 1])
-
 with col1:
     if st.button("▶️ Play Input Sequence"):
         sequence = parse_notes_input(note_input)
         if not sequence:
-            st.error("❌ Invalid note sequence.")
+            st.error("Invalid note sequence.")
         else:
-            st.info("⏳ Please wait... processing audio.")
-            generate_audio_and_prepare_playback(sequence, bpm)
+            st.session_state.sequence = sequence
+            st.session_state.bpm = bpm
+            st.session_state.audio_file = create_audio_file(sequence, bpm)
+            st.session_state.ready_to_play = True
+            st.info("⏳ Please wait, your audio is being processed...")
 
 with col2:
     if st.button("🎲 Generate & Play Random Melody"):
         melody = generate_random_melody()
         st.success(f"Random Melody: `{melody}`")
         sequence = parse_notes_input(melody)
-        generate_audio_and_prepare_playback(sequence, bpm)
+        st.session_state.sequence = sequence
+        st.session_state.bpm = bpm
+        st.session_state.audio_file = create_audio_file(sequence, bpm)
+        st.session_state.ready_to_play = True
+        st.info("⏳ Please wait, your random melody is being processed...")
 
-if st.button("⏹️ Stop Playback"):
-    st.session_state.audio_ready = False
-    st.session_state.play_requested = False
-
-# Phase 2: User clicks ready to play
-if st.session_state.audio_ready and not st.session_state.play_requested:
+# Handle ready-to-play phase
+if st.session_state.get("ready_to_play", False):
     if st.button("🎶 Ready to Play"):
-        st.session_state.play_requested = True
-
-if st.session_state.play_requested:
-    playback_and_animation()
+        st.session_state.ready_to_play = False
+        playback_and_animation()
