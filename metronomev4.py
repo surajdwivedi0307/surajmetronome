@@ -6,6 +6,7 @@ import io
 import os
 from scipy.io import wavfile
 from PIL import Image
+import threading
 
 # Settings
 sample_rate = 44100
