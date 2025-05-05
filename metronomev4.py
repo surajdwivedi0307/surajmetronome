@@ -165,6 +165,8 @@ with col1:
         stop_flag.clear()
         parsed_user = parse_notes_input(user_input)
         audio_data = play_notes_sequence(parsed_user, bpm_input_user)
+
+        # Play audio automatically and show images/sync UI updates
         play_audio_in_streamlit(audio_data)
         display_note_progress(parsed_user, bpm_input_user, audio_data)
 
