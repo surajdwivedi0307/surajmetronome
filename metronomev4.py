@@ -3,7 +3,6 @@ import numpy as np
 import random
 import time
 import io
-import os
 from scipy.io import wavfile
 from PIL import Image
 import threading
@@ -122,8 +121,11 @@ def display_note_progress(parsed_sequence, bpm, audio_data):
         while elapsed_time < total_duration:
             if stop_flag.is_set():
                 return
-            time.sleep(min(step, duration - elapsed_time))
-            elapsed_time += step
+            time_remaining = duration - elapsed_time
+            sleep_time = min(step, time_remaining)
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+            elapsed_time += sleep_time
 
 def play_notes_sequence(parsed_sequence, bpm=60):
     full_wave = np.array([], dtype=np.int16)
