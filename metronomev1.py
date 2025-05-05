@@ -101,6 +101,20 @@ def display_note_animation(parsed_sequence, bpm):
     total_duration = sum(bpm_to_duration(bpm, d) for _, d, _ in parsed_sequence)
     elapsed = 0.0
 
+    # Pre-generate the audio for the entire sequence
+    full_audio_data = np.array([])
+
+    for idx, (note, multiplier, octave) in enumerate(parsed_sequence):
+        duration = bpm_to_duration(bpm, multiplier)
+        note_audio = generate_audio(note, octave, duration)
+        full_audio_data = np.concatenate((full_audio_data, note_audio))  # Concatenate audio data for each note
+
+    # Create a BytesIO object to store the full audio file
+    audio_file = io.BytesIO()
+    sf.write(audio_file, full_audio_data, sample_rate, format="WAV")
+    audio_file.seek(0)
+
+    # Display progress and animation for each note
     for idx, (note, multiplier, octave) in enumerate(parsed_sequence):
         if stop_flag.is_set():
             break
@@ -132,17 +146,12 @@ def display_note_animation(parsed_sequence, bpm):
             progress = (elapsed + elapsed_time) / total_duration
             container_progress.progress(min(progress, 1.0))
 
-            # Play audio for the current note
-            audio_data = generate_audio(note, octave, duration)
-            audio_file = io.BytesIO()
-            sf.write(audio_file, audio_data, sample_rate, format="WAV")
-            audio_file.seek(0)
-
-            st.audio(audio_file, format='audio/wav')  # Removed use_container_width argument
-
             time.sleep(0.05)
 
         elapsed += duration
+
+    # Play the entire audio sequence at once
+    st.audio(audio_file, format='audio/wav')
 
 # Random Melody Generator
 def generate_random_melody(length=12):
