@@ -46,10 +46,9 @@ def bpm_to_duration(bpm, note_length=1):
     return (60.0 / bpm) * note_length
 
 def display_note_progress_bar(parsed_sequence, bpm):
-    # Placeholders
     note_text = st.empty()
     next_note_text = st.empty()
-    progress_bar = st.empty()
+    progress_bar = st.progress(0)
     image_display = st.empty()
 
     total_duration = sum(bpm_to_duration(bpm, duration) for _, duration, _ in parsed_sequence)
@@ -64,34 +63,28 @@ def display_note_progress_bar(parsed_sequence, bpm):
         current_note_label = f"{note} ({octave})" if note != '-' else "Rest"
         next_note_label = f"Next: {next_note}" if next_note != '-' else "Next: Rest"
 
-        # Update text
         note_text.markdown(f"### 🎵 Playing: **{current_note_label}**")
         next_note_text.markdown(f"##### ⏭️ {next_note_label}")
 
-        # Update image
+        # Show note image
         if note in note_freq_base:
             img_url = f"{image_base_url}bansuri_notes_{note}.png"
             image_display.image(img_url, caption=f"{note} fingering", use_container_width=True)
         else:
             image_display.empty()
 
-        # Animate progress bar for this note
-        local_bar = st.progress(0)
+        # Animate total progress bar
         steps = 25
         for step in range(steps):
             if stop_flag.is_set():
                 break
-            local_progress = int((step + 1) * 100 / steps)
-            elapsed += duration / steps
-            total_progress = min(int((elapsed / total_duration) * 100), 100)
-            local_bar.progress(local_progress)
             time.sleep(duration / steps)
+            elapsed += duration / steps
+            overall_progress = min(int((elapsed / total_duration) * 100), 100)
+            progress_bar.progress(overall_progress)
 
-        local_bar.progress(100)  # ensure full
-
-    # Done state
     note_text.markdown("### ✅ Done!")
-    next_note_text.markdown("")
+    next_note_text.empty()
     image_display.empty()
     progress_bar.progress(100)
 
@@ -114,8 +107,8 @@ def save_melodies_to_file(melodies, filename='saved_melodies.txt'):
 
 # --- Streamlit UI ---
 st.set_page_config(layout="centered")
-st.title("🎶 Animated Indian Flute Metronome")
-st.caption("Smooth progress bar, current/next note view, note image transitions")
+st.title("🎶 Smooth Flute Metronome")
+st.caption("One animated progress bar with live notes and images")
 
 bpm_input_user = st.slider("🎚️ BPM", min_value=30, max_value=200, value=60)
 user_input = st.text_input("✍️ Enter note sequence", "SG>R_,GGM,DP-")
