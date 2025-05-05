@@ -2,11 +2,9 @@ import streamlit as st
 import numpy as np
 import random
 import time
-import io
-from PIL import Image
 import threading
-from pydub import AudioSegment
-import simpleaudio as sa
+import soundfile as sf
+import io
 
 # Settings
 sample_rate = 44100
@@ -85,17 +83,18 @@ def bpm_to_duration(bpm, note_length=1):
 def generate_tone(frequency, duration):
     """Generate a sine wave tone for a given frequency and duration."""
     samples = np.arange(int(sample_rate * duration))
-    samples = np.sin(2 * np.pi * frequency * samples / sample_rate) * 32767
-    return samples.astype(np.int16)
+    samples = np.sin(2 * np.pi * frequency * samples / sample_rate) * 0.5  # Volume scaling to avoid distortion
+    return samples
 
 def play_tone(frequency, duration):
-    """Play the generated tone using simpleaudio."""
+    """Play the generated tone using soundfile."""
     samples = generate_tone(frequency, duration)
-    audio = AudioSegment(
-        samples.tobytes(), frame_rate=sample_rate, sample_width=2, channels=1, frame_count=len(samples)
-    )
-    playback_obj = sa.play_buffer(audio.raw_data, num_channels=1, bytes_per_sample=2, sample_rate=sample_rate)
-    playback_obj.wait_done()
+    # Write audio to a temporary in-memory file
+    with io.BytesIO() as buffer:
+        sf.write(buffer, samples, sample_rate, format='WAV')
+        buffer.seek(0)  # Go to the start of the buffer
+        # Now we can use `buffer` as the in-memory audio file to play
+        st.audio(buffer, format="audio/wav", use_container_width=False)
 
 def display_note_animation(parsed_sequence, bpm):
     container_note = st.empty()
