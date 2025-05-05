@@ -1,3 +1,5 @@
+# Updated Streamlit Flute Metronome App with Improvements and Enhancements
+
 import streamlit as st
 import numpy as np
 import random
@@ -6,6 +8,8 @@ import io
 from scipy.io import wavfile
 from PIL import Image
 import threading
+import os
+import base64
 
 # Settings
 sample_rate = 44100
@@ -17,12 +21,14 @@ note_freq_base = {
     'P': 392.00, 'D': 440.00, 'N': 493.88
 }
 octave_multipliers = {'low': 0.5, 'medium': 1.0, 'high': 2.0}
-image_folder = "/Users/surajdwivedi/Downloads/surajmetronome"  # Adjust for your folder location
+
+# GitHub-hosted images
+image_base_url = "https://raw.githubusercontent.com/surajdwivedi0307/surajmetronome/main/images/"
 
 def generate_note_wave_flute_natural_vibrato(note, duration, octave='medium', fade_duration=0.01,
                                              vibrato_depth=0.001, vibrato_speed=2.5, add_swell=True):
     t = np.linspace(0, duration, int(sample_rate * duration), False)
-    if note == '-':
+    if note == '-' or note not in note_freq_base:
         tone = np.zeros_like(t)
     else:
         base_freq = note_freq_base[note] * octave_multipliers[octave]
@@ -47,7 +53,7 @@ def generate_note_wave_flute_natural_vibrato(note, duration, octave='medium', fa
     tone[:n_fade] *= fade_in
     tone[-n_fade:] *= fade_out
 
-    tone *= 32767 / np.max(np.abs(tone))
+    tone *= 32767 / np.max(np.abs(tone) + 1e-5)
     return tone.astype(np.int16)
 
 def parse_notes_input(note_string):
@@ -61,6 +67,8 @@ def parse_notes_input(note_string):
         else:
             note = entry[i]
             i += 1
+            if note not in note_freq_base:
+                continue  # Skip invalid notes
             octave = 'medium'
             if i < len(entry) and entry[i] == '>':
                 octave = 'high'
@@ -85,51 +93,39 @@ def play_audio_in_streamlit(audio_data):
     st.audio(buffer.getvalue(), format='audio/wav')
     return buffer
 
-# Update the image folder to GitHub raw URLs
-image_base_url = "https://raw.githubusercontent.com/surajdwivedi0307/surajmetronome/main/images/"
-
-def display_note_progress(parsed_sequence, bpm, audio_data):
+def display_note_progress(parsed_sequence, bpm):
     note_display = st.empty()
     timer_display = st.empty()
     image_display = st.empty()
-    total_notes = len(parsed_sequence)
 
     total_duration = sum(bpm_to_duration(bpm, duration) for _, duration, _ in parsed_sequence)
     elapsed_time = 0.0
 
-    for idx, (note_entry, multiplier, octave) in enumerate(parsed_sequence):
+    for note_entry, multiplier, octave in parsed_sequence:
         if stop_flag.is_set():
             break
 
         duration = bpm_to_duration(bpm, multiplier)
-        note_name = f"{note_entry} ({octave})" if note_entry != '-' else "Rest"
-        
-        # Update Timer and Note Display
         elapsed_time += duration
-        timer_display.markdown(f"### ⏱️ Duration: {elapsed_time:.2f}/{total_duration:.2f} seconds")
-        note_display.markdown(f"## 🎵 Playing: **{note_name}**")
 
-        # Display Image for Current Note
-        if note_entry != '-':
+        note_name = f"{note_entry} ({octave})" if note_entry != '-' else "Rest"
+        note_display.markdown(f"## 🎵 Playing: **{note_name}**")
+        timer_display.markdown(f"### ⏱️ Duration: {elapsed_time:.2f}/{total_duration:.2f} seconds")
+
+        if note_entry in note_freq_base:
             img_url = f"{image_base_url}bansuri_notes_{note_entry}.png"
             image_display.image(img_url, caption=f"{note_entry} fingering", use_container_width=True)
         else:
             image_display.empty()
 
-        # Sleep for the duration of the note
         time.sleep(duration)
 
 def play_notes_sequence(parsed_sequence, bpm=60):
     full_wave = np.array([], dtype=np.int16)
     for note_entry, multiplier, octave in parsed_sequence:
         duration = bpm_to_duration(bpm, multiplier)
-        if note_entry not in note_freq_base and note_entry != '-':
-            continue
         wave = generate_note_wave_flute_natural_vibrato(note_entry, duration, octave)
         full_wave = np.concatenate((full_wave, wave))
-        if note_entry == '-':
-            gap_wave = np.zeros(int(sample_rate * 0.1), dtype=np.int16)
-            full_wave = np.concatenate((full_wave, gap_wave))
     return full_wave
 
 def generate_random_melody(length=12):
@@ -154,7 +150,6 @@ st.set_page_config(layout="wide")
 st.title("🎶 Indian Flute Metronome + Melody Generator 🎶")
 st.write("Generate and play random melodies or input your own sequence!")
 
-# Layout and Inputs
 bpm_input_user = st.number_input("Enter BPM:", min_value=1, max_value=200, value=60, help="Beats per minute for melody speed.")
 user_input = st.text_input("Enter sequence (e.g., SGRG_RSN):", "DS>DP,GRSR,G-GR,GPD_")
 
@@ -164,16 +159,16 @@ with col1:
     if st.button("▶️ Play Notes"):
         stop_flag.clear()
         parsed_user = parse_notes_input(user_input)
-        audio_data = play_notes_sequence(parsed_user, bpm_input_user)
-
-        # Play audio automatically and show images/sync UI updates
-        play_audio_in_streamlit(audio_data)
-        display_note_progress(parsed_user, bpm_input_user, audio_data)
-
-        buffer = io.BytesIO()
-        wavfile.write(buffer, sample_rate, audio_data)
-        st.download_button("💽 Download WAV", data=buffer.getvalue(),
-                           file_name="flute_sequence.wav", mime="audio/wav")
+        if not parsed_user:
+            st.error("Invalid input sequence. Please check your notes.")
+        else:
+            audio_data = play_notes_sequence(parsed_user, bpm_input_user)
+            play_audio_in_streamlit(audio_data)
+            display_note_progress(parsed_user, bpm_input_user)
+            buffer = io.BytesIO()
+            wavfile.write(buffer, sample_rate, audio_data)
+            st.download_button("💽 Download WAV", data=buffer.getvalue(),
+                               file_name="flute_sequence.wav", mime="audio/wav")
 
 with col2:
     st.markdown("#### 🎶 Melody Generator")
@@ -188,7 +183,7 @@ with col2:
         parsed_random = parse_notes_input(random_melody)
         audio_data = play_notes_sequence(parsed_random, bpm_input_user)
         play_audio_in_streamlit(audio_data)
-        display_note_progress(parsed_random, bpm_input_user, audio_data)
+        display_note_progress(parsed_random, bpm_input_user)
 
         buffer = io.BytesIO()
         wavfile.write(buffer, sample_rate, audio_data)
