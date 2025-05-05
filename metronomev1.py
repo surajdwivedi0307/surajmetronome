@@ -5,7 +5,8 @@ import time
 import io
 from PIL import Image
 import threading
-import sounddevice as sd
+from pydub import AudioSegment
+import simpleaudio as sa
 
 # Settings
 sample_rate = 44100
@@ -81,11 +82,20 @@ def parse_notes_input(note_string):
 def bpm_to_duration(bpm, note_length=1):
     return (60.0 / bpm) * note_length
 
-def generate_audio(note, duration, octave='medium'):
-    frequency = note_freq_base[note] * octave_multipliers[octave]
-    t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
-    audio = np.sin(2 * np.pi * frequency * t)
-    return audio
+def generate_tone(frequency, duration):
+    """Generate a sine wave tone for a given frequency and duration."""
+    samples = np.arange(int(sample_rate * duration))
+    samples = np.sin(2 * np.pi * frequency * samples / sample_rate) * 32767
+    return samples.astype(np.int16)
+
+def play_tone(frequency, duration):
+    """Play the generated tone using simpleaudio."""
+    samples = generate_tone(frequency, duration)
+    audio = AudioSegment(
+        samples.tobytes(), frame_rate=sample_rate, sample_width=2, channels=1, frame_count=len(samples)
+    )
+    playback_obj = sa.play_buffer(audio.raw_data, num_channels=1, bytes_per_sample=2, sample_rate=sample_rate)
+    playback_obj.wait_done()
 
 def display_note_animation(parsed_sequence, bpm):
     container_note = st.empty()
@@ -111,12 +121,6 @@ def display_note_animation(parsed_sequence, bpm):
         # Dynamic label showing elapsed and remaining time
         remaining_time = duration
         start_time = time.time()
-        
-        # Generate audio for the note
-        if note != '-':
-            audio = generate_audio(note, duration, octave)
-            sd.play(audio, sample_rate)
-        
         while time.time() - start_time < duration:
             elapsed_time = time.time() - start_time
             remaining_time = duration - elapsed_time
@@ -134,10 +138,13 @@ def display_note_animation(parsed_sequence, bpm):
             progress = (elapsed + elapsed_time) / total_duration
             container_progress.progress(min(progress, 1.0))
 
+            # Play tone
+            if note != '-':
+                play_tone(note_freq_base[note] * octave_multipliers[octave], duration)
+
             time.sleep(0.05)
 
         elapsed += duration
-        sd.stop()  # Stop sound after the note duration
 
 # Random Melody Generator
 def generate_random_melody(length=12):
@@ -176,4 +183,3 @@ with col2:
 
 if st.button("⏹️ Stop Playback"):
     stop_flag.set()
-
