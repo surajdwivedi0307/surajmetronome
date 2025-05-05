@@ -115,6 +115,7 @@ def display_note_animation(parsed_sequence, bpm):
     audio_file.seek(0)
 
     # Display progress and animation for each note
+    start_time = time.time()  # Start time for synchronization
     for idx, (note, multiplier, octave) in enumerate(parsed_sequence):
         if stop_flag.is_set():
             break
@@ -128,9 +129,10 @@ def display_note_animation(parsed_sequence, bpm):
 
         # Dynamic label showing elapsed and remaining time
         remaining_time = duration
-        start_time = time.time()
-        while time.time() - start_time < duration:
-            elapsed_time = time.time() - start_time
+        start_note_time = time.time()
+
+        while time.time() - start_note_time < duration:
+            elapsed_time = time.time() - start_note_time
             remaining_time = duration - elapsed_time
             container_note.markdown(
                 f"<div class='note-box'>🎵 Now Playing: {note_name} &nbsp;&nbsp; ⏱️ {elapsed_time:.2f}s / {duration:.2f}s left</div>", 
