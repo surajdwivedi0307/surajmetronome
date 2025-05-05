@@ -1,6 +1,6 @@
 import streamlit as st
 import numpy as np
-import sounddevice as sd
+import simpleaudio as sa
 import random
 import time
 import threading
@@ -22,8 +22,7 @@ note_freq_base = {
 }
 octave_multipliers = {'low': 0.5, 'medium': 1.0, 'high': 2.0}
 
-# Base URL for raw images from your GitHub repository
-base_url = "https://raw.githubusercontent.com/surajdwivedi0307/surajmetronome/main/"
+base_url = "https://raw.githubusercontent.com/surajdwivedi0307/surajmetronome/main/images"
 
 def generate_note_wave_flute_natural_vibrato(note, duration, octave='medium', fade_duration=0.01,
                                              vibrato_depth=0.001, vibrato_speed=2.5, add_swell=True):
@@ -86,8 +85,9 @@ def bpm_to_duration(bpm, note_length=1):
     return (60.0 / bpm) * note_length
 
 def play_audio_thread(audio_data):
-    sd.play(audio_data, samplerate=sample_rate)
-    sd.wait()
+    # audio_data is int16, mono, sample rate = 44100
+    play_obj = sa.play_buffer(audio_data, 1, 2, sample_rate)
+    play_obj.wait_done()
 
 def display_note_progress(parsed_sequence, bpm):
     note_display = st.empty()
@@ -117,8 +117,7 @@ def display_note_progress(parsed_sequence, bpm):
         else:
             image_display.empty()
 
-        # Split sleep into small steps to allow stop
-        step = 0.1  # seconds
+        step = 0.1
         elapsed = 0.0
         while elapsed < duration:
             if stop_flag.is_set():
@@ -161,8 +160,7 @@ st.set_page_config(layout="wide")
 st.title("🎶 Indian Flute Metronome + Melody Generator 🎶")
 st.write("Generate and play random melodies or input your own sequence!")
 
-# Layout and Inputs
-bpm_input_user = st.number_input("Enter BPM:", min_value=1, max_value=200, value=60, help="Beats per minute for melody speed.")
+bpm_input_user = st.number_input("Enter BPM:", min_value=1, max_value=200, value=60)
 user_input = st.text_input("Enter sequence (e.g., SGRG_RSN):", "DS>DP,GRSR,G-GR,GPD_")
 
 col1, col2 = st.columns([1, 1])
@@ -192,7 +190,6 @@ with col2:
         st.write(f"**Random Melody:** `{random_melody}`")
         parsed_random = parse_notes_input(random_melody)
         audio_data = play_notes_sequence(parsed_random, bpm_input_user)
-
         threading.Thread(target=play_audio_thread, args=(audio_data,), daemon=True).start()
         display_note_progress(parsed_random, bpm_input_user)
 
