@@ -1,18 +1,11 @@
-# Updated Streamlit Flute Metronome App with Improvements and Enhancements
-
 import streamlit as st
 import numpy as np
 import random
 import time
-import io
-from scipy.io import wavfile
 from PIL import Image
 import threading
-import os
-import base64
 
 # Settings
-sample_rate = 44100
 saved_melodies = []
 stop_flag = threading.Event()
 
@@ -24,37 +17,6 @@ octave_multipliers = {'low': 0.5, 'medium': 1.0, 'high': 2.0}
 
 # GitHub-hosted images
 image_base_url = "https://raw.githubusercontent.com/surajdwivedi0307/surajmetronome/main/images/"
-
-def generate_note_wave_flute_natural_vibrato(note, duration, octave='medium', fade_duration=0.01,
-                                             vibrato_depth=0.001, vibrato_speed=2.5, add_swell=True):
-    t = np.linspace(0, duration, int(sample_rate * duration), False)
-    if note == '-' or note not in note_freq_base:
-        tone = np.zeros_like(t)
-    else:
-        base_freq = note_freq_base[note] * octave_multipliers[octave]
-        vibrato = vibrato_depth * np.sin(2 * np.pi * vibrato_speed * t)
-        phase = 2 * np.pi * base_freq * t + vibrato
-        fundamental = np.sin(phase)
-        overtone1 = 0.2 * np.sin(2 * phase)
-        overtone2 = 0.1 * np.sin(3 * phase)
-        overtone3 = 0.05 * np.sin(4 * phase)
-        noise = 0.003 * np.random.normal(0, 1, len(t))
-        tone = fundamental + overtone1 + overtone2 + overtone3 + noise
-
-    if add_swell and note != '-':
-        swell = np.sin(np.pi * t / duration)
-        tone *= swell
-
-    n_samples = len(tone)
-    n_fade = int(sample_rate * fade_duration)
-    n_fade = min(n_fade, n_samples // 2)
-    fade_in = np.linspace(0.0, 1.0, n_fade)
-    fade_out = np.linspace(1.0, 0.0, n_fade)
-    tone[:n_fade] *= fade_in
-    tone[-n_fade:] *= fade_out
-
-    tone *= 32767 / np.max(np.abs(tone) + 1e-5)
-    return tone.astype(np.int16)
 
 def parse_notes_input(note_string):
     parsed_sequence = []
@@ -68,7 +30,7 @@ def parse_notes_input(note_string):
             note = entry[i]
             i += 1
             if note not in note_freq_base:
-                continue  # Skip invalid notes
+                continue
             octave = 'medium'
             if i < len(entry) and entry[i] == '>':
                 octave = 'high'
@@ -86,12 +48,6 @@ def parse_notes_input(note_string):
 
 def bpm_to_duration(bpm, note_length=1):
     return (60.0 / bpm) * note_length
-
-def play_audio_in_streamlit(audio_data):
-    buffer = io.BytesIO()
-    wavfile.write(buffer, sample_rate, audio_data)
-    st.audio(buffer.getvalue(), format='audio/wav')
-    return buffer
 
 def display_note_progress(parsed_sequence, bpm):
     note_display = st.empty()
@@ -120,14 +76,6 @@ def display_note_progress(parsed_sequence, bpm):
 
         time.sleep(duration)
 
-def play_notes_sequence(parsed_sequence, bpm=60):
-    full_wave = np.array([], dtype=np.int16)
-    for note_entry, multiplier, octave in parsed_sequence:
-        duration = bpm_to_duration(bpm, multiplier)
-        wave = generate_note_wave_flute_natural_vibrato(note_entry, duration, octave)
-        full_wave = np.concatenate((full_wave, wave))
-    return full_wave
-
 def generate_random_melody(length=12):
     notes = ['S', 'R', 'G', 'M', 'P', 'D', 'N', '-']
     octaves = ['', '>', '<']
@@ -148,7 +96,7 @@ def save_melodies_to_file(melodies, filename='saved_melodies.txt'):
 # ---- Streamlit UI ----
 st.set_page_config(layout="wide")
 st.title("🎶 Indian Flute Metronome + Melody Generator 🎶")
-st.write("Generate and play random melodies or input your own sequence!")
+st.write("Generate and visualize melodies or input your own sequence!")
 
 bpm_input_user = st.number_input("Enter BPM:", min_value=1, max_value=200, value=60, help="Beats per minute for melody speed.")
 user_input = st.text_input("Enter sequence (e.g., SGRG_RSN):", "DS>DP,GRSR,G-GR,GPD_")
@@ -162,13 +110,7 @@ with col1:
         if not parsed_user:
             st.error("Invalid input sequence. Please check your notes.")
         else:
-            audio_data = play_notes_sequence(parsed_user, bpm_input_user)
-            play_audio_in_streamlit(audio_data)
-            display_note_progress(parsed_user, bpm_input_user)
-            buffer = io.BytesIO()
-            wavfile.write(buffer, sample_rate, audio_data)
-            st.download_button("💽 Download WAV", data=buffer.getvalue(),
-                               file_name="flute_sequence.wav", mime="audio/wav")
+            display_note_progress(parsed_user, bpm_input_user)  # ⬅️ Audio removed, only display
 
 with col2:
     st.markdown("#### 🎶 Melody Generator")
@@ -181,14 +123,7 @@ with col2:
         saved_melodies.append(random_melody)
         st.write(f"**Random Melody:** `{random_melody}`")
         parsed_random = parse_notes_input(random_melody)
-        audio_data = play_notes_sequence(parsed_random, bpm_input_user)
-        play_audio_in_streamlit(audio_data)
-        display_note_progress(parsed_random, bpm_input_user)
-
-        buffer = io.BytesIO()
-        wavfile.write(buffer, sample_rate, audio_data)
-        st.download_button("💽 Download Random Melody", data=buffer.getvalue(),
-                           file_name="random_melody.wav", mime="audio/wav")
+        display_note_progress(parsed_random, bpm_input_user)  # ⬅️ Only visual, no audio
 
     if st.button("💾 Save All Generated Melodies"):
         if saved_melodies:
