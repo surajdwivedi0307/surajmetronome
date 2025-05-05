@@ -138,7 +138,7 @@ def display_note_animation(parsed_sequence, bpm):
             sf.write(audio_file, audio_data, sample_rate, format="WAV")
             audio_file.seek(0)
 
-            st.audio(audio_file, format='audio/wav', use_container_width=True)
+            st.audio(audio_file, format='audio/wav')  # Removed use_container_width argument
 
             time.sleep(0.05)
 
