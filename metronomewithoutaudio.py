@@ -2,7 +2,6 @@ import streamlit as st
 import numpy as np
 import random
 import time
-from PIL import Image
 import threading
 
 # Settings
@@ -54,10 +53,11 @@ def display_note_progress(parsed_sequence, bpm):
     timer_display = st.empty()
     image_display = st.empty()
 
+    total_notes = len(parsed_sequence)
     total_duration = sum(bpm_to_duration(bpm, duration) for _, duration, _ in parsed_sequence)
     elapsed_time = 0.0
 
-    for note_entry, multiplier, octave in parsed_sequence:
+    for idx, (note_entry, multiplier, octave) in enumerate(parsed_sequence):
         if stop_flag.is_set():
             break
 
@@ -65,14 +65,20 @@ def display_note_progress(parsed_sequence, bpm):
         elapsed_time += duration
 
         note_name = f"{note_entry} ({octave})" if note_entry != '-' else "Rest"
-        note_display.markdown(f"## 🎵 Playing: **{note_name}**")
-        timer_display.markdown(f"### ⏱️ Duration: {elapsed_time:.2f}/{total_duration:.2f} seconds")
+        note_display.markdown(f"## 🎵 Now: **{note_name}**")
+        timer_display.markdown(f"### ⏱️ {elapsed_time:.2f} / {total_duration:.2f} seconds")
 
         if note_entry in note_freq_base:
             img_url = f"{image_base_url}bansuri_notes_{note_entry}.png"
             image_display.image(img_url, caption=f"{note_entry} fingering", use_container_width=True)
         else:
             image_display.empty()
+
+        # Visual metronome progress bar using columns
+        cols = st.columns(total_notes)
+        for i, col in enumerate(cols):
+            style = "**:green[■]**" if i == idx else "□"
+            col.markdown(f"<center style='font-size: 24px;'>{style}</center>", unsafe_allow_html=True)
 
         time.sleep(duration)
 
@@ -95,8 +101,8 @@ def save_melodies_to_file(melodies, filename='saved_melodies.txt'):
 
 # ---- Streamlit UI ----
 st.set_page_config(layout="wide")
-st.title("🎶 Indian Flute Metronome + Melody Generator 🎶")
-st.write("Generate and visualize melodies or input your own sequence!")
+st.title("🎶 Indian Flute Metronome (Visual Only) 🎶")
+st.write("Generate and visualize random melodies or input your own sequence!")
 
 bpm_input_user = st.number_input("Enter BPM:", min_value=1, max_value=200, value=60, help="Beats per minute for melody speed.")
 user_input = st.text_input("Enter sequence (e.g., SGRG_RSN):", "DS>DP,GRSR,G-GR,GPD_")
@@ -110,7 +116,7 @@ with col1:
         if not parsed_user:
             st.error("Invalid input sequence. Please check your notes.")
         else:
-            display_note_progress(parsed_user, bpm_input_user)  # ⬅️ Audio removed, only display
+            display_note_progress(parsed_user, bpm_input_user)
 
 with col2:
     st.markdown("#### 🎶 Melody Generator")
@@ -123,7 +129,7 @@ with col2:
         saved_melodies.append(random_melody)
         st.write(f"**Random Melody:** `{random_melody}`")
         parsed_random = parse_notes_input(random_melody)
-        display_note_progress(parsed_random, bpm_input_user)  # ⬅️ Only visual, no audio
+        display_note_progress(parsed_random, bpm_input_user)
 
     if st.button("💾 Save All Generated Melodies"):
         if saved_melodies:
