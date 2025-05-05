@@ -3,10 +3,9 @@ import numpy as np
 import random
 import time
 import io
-import os
+import threading
 from scipy.io import wavfile
 from PIL import Image
-import threading
 
 # Settings
 sample_rate = 44100
@@ -83,11 +82,7 @@ def bpm_to_duration(bpm, note_length=1):
 def play_audio_in_streamlit(audio_data):
     buffer = io.BytesIO()
     wavfile.write(buffer, sample_rate, audio_data)
-    st.audio(buffer.getvalue(), format='audio/wav')
-
-    # Small delay to ensure Streamlit processes the audio correctly
-    time.sleep(0.5)  # Allow a short delay to ensure the audio is ready
-    return buffer
+    st.session_state.audio_buffer = buffer.getvalue()  # Save audio buffer in session state
 
 # Update the image folder to GitHub raw URLs
 image_base_url = "https://raw.githubusercontent.com/surajdwivedi0307/surajmetronome/main/images/"
@@ -172,8 +167,14 @@ with col1:
         parsed_user = parse_notes_input(user_input)
         audio_data = play_notes_sequence(parsed_user, bpm_input_user)
         play_audio_in_streamlit(audio_data)
+        
+        # Trigger the audio player after it's ready
+        if 'audio_buffer' in st.session_state:
+            st.audio(st.session_state.audio_buffer, format='audio/wav')
+        
         display_note_progress(parsed_user, bpm_input_user)
 
+        # Provide the option to download the audio
         buffer = io.BytesIO()
         wavfile.write(buffer, sample_rate, audio_data)
         st.download_button("💽 Download WAV", data=buffer.getvalue(),
@@ -192,8 +193,14 @@ with col2:
         parsed_random = parse_notes_input(random_melody)
         audio_data = play_notes_sequence(parsed_random, bpm_input_user)
         play_audio_in_streamlit(audio_data)
+        
+        # Trigger the audio player after it's ready
+        if 'audio_buffer' in st.session_state:
+            st.audio(st.session_state.audio_buffer, format='audio/wav')
+        
         display_note_progress(parsed_random, bpm_input_user)
 
+        # Provide the option to download the audio
         buffer = io.BytesIO()
         wavfile.write(buffer, sample_rate, audio_data)
         st.download_button("💽 Download Random Melody", data=buffer.getvalue(),
