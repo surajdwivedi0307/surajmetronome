@@ -120,17 +120,23 @@ def display_note_animation(parsed_sequence, bpm):
     # Wait for the audio to be ready
     time.sleep(3)  # Simulating backend processing time, adjust as needed
 
-    # Once audio is ready, show "Ready" button
+    # Once audio is ready, set the session state
+    st.session_state.audio_ready = True
+    st.session_state.audio_file = audio_file
+    st.session_state.sequence = parsed_sequence
+    st.session_state.bpm = bpm
+
+    # Show the "Ready to Play" button after processing
     ready_button = st.button("🎶 Ready to Play")
 
-    if ready_button:
+    if ready_button and st.session_state.audio_ready:
         # Display progress and animation for each note
         start_time = time.time()  # Start time for synchronization
-        for idx, (note, multiplier, octave) in enumerate(parsed_sequence):
+        for idx, (note, multiplier, octave) in enumerate(st.session_state.sequence):
             if stop_flag.is_set():
                 break
 
-            duration = bpm_to_duration(bpm, multiplier)
+            duration = bpm_to_duration(st.session_state.bpm, multiplier)
             note_name = f"{note} ({octave})" if note != '-' else "Rest"
             next_note_name = ""
             if idx + 1 < total_notes:
@@ -163,7 +169,7 @@ def display_note_animation(parsed_sequence, bpm):
             elapsed += duration
 
         # Play the entire audio sequence at once
-        st.audio(audio_file, format='audio/wav')
+        st.audio(st.session_state.audio_file, format='audio/wav')
 
 # Random Melody Generator
 def generate_random_melody(length=12):
