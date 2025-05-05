@@ -159,7 +159,7 @@ def save_melodies_to_file(melodies, filename='saved_melodies.txt'):
 
 # ---- Streamlit UI ----
 st.set_page_config(layout="wide")
-st.title("🎶 Indian Flute Metronome + Melody Generator 🎶")
+st.title("🎶 Indian Flute Metronome by Suraj + Melody Generator 🎶")
 st.write("Generate and play random melodies or input your own sequence!")
 
 # Layout and Inputs
