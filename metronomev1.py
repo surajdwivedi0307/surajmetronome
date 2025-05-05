@@ -114,54 +114,56 @@ def display_note_animation(parsed_sequence, bpm):
     sf.write(audio_file, full_audio_data, sample_rate, format="WAV")
     audio_file.seek(0)
 
-    return audio_file, parsed_sequence, total_duration
+    # Inform user to wait while audio is being processed
+    container_note.markdown("<div class='note-box'>Please wait while we process your audio...</div>", unsafe_allow_html=True)
 
-def play_audio_and_animate(audio_file, parsed_sequence, total_duration, bpm):
-    container_note = st.empty()
-    container_next = st.empty()
-    container_image = st.empty()
-    container_progress = st.empty()
+    # Wait for the audio to be ready
+    time.sleep(3)  # Simulating backend processing time, adjust as needed
 
-    elapsed = 0.0
-    start_time = time.time()  # Start time for synchronization
-    for idx, (note, multiplier, octave) in enumerate(parsed_sequence):
-        if stop_flag.is_set():
-            break
+    # Once audio is ready, show "Ready" button
+    ready_button = st.button("🎶 Ready to Play")
 
-        duration = bpm_to_duration(bpm, multiplier)
-        note_name = f"{note} ({octave})" if note != '-' else "Rest"
-        next_note_name = ""
-        if idx + 1 < len(parsed_sequence):
-            next_n, _, next_octave = parsed_sequence[idx + 1]
-            next_note_name = f"{next_n} ({next_octave})" if next_n != '-' else "Rest"
+    if ready_button:
+        # Display progress and animation for each note
+        start_time = time.time()  # Start time for synchronization
+        for idx, (note, multiplier, octave) in enumerate(parsed_sequence):
+            if stop_flag.is_set():
+                break
 
-        # Dynamic label showing elapsed and remaining time
-        remaining_time = duration
-        start_note_time = time.time()
+            duration = bpm_to_duration(bpm, multiplier)
+            note_name = f"{note} ({octave})" if note != '-' else "Rest"
+            next_note_name = ""
+            if idx + 1 < total_notes:
+                next_n, _, next_octave = parsed_sequence[idx + 1]
+                next_note_name = f"{next_n} ({next_octave})" if next_n != '-' else "Rest"
 
-        while time.time() - start_note_time < duration:
-            elapsed_time = time.time() - start_note_time
-            remaining_time = duration - elapsed_time
-            container_note.markdown(
-                f"<div class='note-box'>🎵 Now Playing: {note_name} &nbsp;&nbsp; ⏱️ {elapsed_time:.2f}s / {duration:.2f}s left</div>", 
-                unsafe_allow_html=True)
-            container_next.markdown(f"##### 🔜 Next: `{next_note_name}`" if next_note_name else "", unsafe_allow_html=True)
+            # Dynamic label showing elapsed and remaining time
+            remaining_time = duration
+            start_note_time = time.time()
 
-            if note in note_freq_base:
-                image_url = f"{image_base_url}bansuri_notes_{note}.png"
-                container_image.image(image_url, caption=f"{note} fingering", use_container_width=True)
-            else:
-                container_image.empty()
+            while time.time() - start_note_time < duration:
+                elapsed_time = time.time() - start_note_time
+                remaining_time = duration - elapsed_time
+                container_note.markdown(
+                    f"<div class='note-box'>🎵 Now Playing: {note_name} &nbsp;&nbsp; ⏱️ {elapsed_time:.2f}s / {duration:.2f}s left</div>", 
+                    unsafe_allow_html=True)
+                container_next.markdown(f"##### 🔜 Next: `{next_note_name}`" if next_note_name else "", unsafe_allow_html=True)
 
-            progress = (elapsed + elapsed_time) / total_duration
-            container_progress.progress(min(progress, 1.0))
+                if note in note_freq_base:
+                    image_url = f"{image_base_url}bansuri_notes_{note}.png"
+                    container_image.image(image_url, caption=f"{note} fingering", use_container_width=True)
+                else:
+                    container_image.empty()
 
-            time.sleep(0.05)
+                progress = (elapsed + elapsed_time) / total_duration
+                container_progress.progress(min(progress, 1.0))
 
-        elapsed += duration
+                time.sleep(0.05)
 
-    # Play the entire audio sequence at once
-    st.audio(audio_file, format='audio/wav')
+            elapsed += duration
+
+        # Play the entire audio sequence at once
+        st.audio(audio_file, format='audio/wav')
 
 # Random Melody Generator
 def generate_random_melody(length=12):
@@ -188,13 +190,7 @@ with col1:
         if not sequence:
             st.error("Invalid note sequence.")
         else:
-            # Show 'Wait' button and process the audio
-            with st.spinner('Processing your melody, please wait...'):
-                audio_file, parsed_sequence, total_duration = display_note_animation(sequence, bpm)
-
-            # After processing, show the 'Ready' button
-            if st.button("🎶 Ready to Play"):
-                play_audio_and_animate(audio_file, parsed_sequence, total_duration, bpm)
+            display_note_animation(sequence, bpm)
 
 with col2:
     if st.button("🎲 Generate & Play Random Melody"):
@@ -202,13 +198,7 @@ with col2:
         melody = generate_random_melody()
         st.success(f"Random Melody: `{melody}`")
         sequence = parse_notes_input(melody)
-        # Show 'Wait' button and process the audio
-        with st.spinner('Processing your melody, please wait...'):
-            audio_file, parsed_sequence, total_duration = display_note_animation(sequence, bpm)
-
-        # After processing, show the 'Ready' button
-        if st.button("🎶 Ready to Play"):
-            play_audio_and_animate(audio_file, parsed_sequence, total_duration, bpm)
+        display_note_animation(sequence, bpm)
 
 if st.button("⏹️ Stop Playback"):
     stop_flag.set()
