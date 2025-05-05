@@ -2,9 +2,10 @@ import streamlit as st
 import numpy as np
 import random
 import time
+import io
+from PIL import Image
 import threading
 import soundfile as sf
-import io
 
 # Settings
 sample_rate = 44100
@@ -80,21 +81,18 @@ def parse_notes_input(note_string):
 def bpm_to_duration(bpm, note_length=1):
     return (60.0 / bpm) * note_length
 
-def generate_tone(frequency, duration):
-    """Generate a sine wave tone for a given frequency and duration."""
-    samples = np.arange(int(sample_rate * duration))
-    samples = np.sin(2 * np.pi * frequency * samples / sample_rate) * 0.5  # Volume scaling to avoid distortion
-    return samples
+def generate_audio(note, octave, duration):
+    frequency = note_freq_base[note] * octave_multipliers[octave]
+    t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
+    audio_data = np.sin(2 * np.pi * frequency * t)
+    return audio_data
 
-def play_tone(frequency, duration):
-    """Play the generated tone using soundfile."""
-    samples = generate_tone(frequency, duration)
-    # Write audio to a temporary in-memory file
-    with io.BytesIO() as buffer:
-        sf.write(buffer, samples, sample_rate, format='WAV')
-        buffer.seek(0)  # Go to the start of the buffer
-        # Now we can use `buffer` as the in-memory audio file to play
-        st.audio(buffer, format="audio/wav", use_container_width=False)
+def play_audio(audio_data):
+    # Convert the audio data to bytes and stream it
+    byte_io = io.BytesIO()
+    sf.write(byte_io, audio_data, sample_rate, format='WAV')
+    byte_io.seek(0)
+    return byte_io
 
 def display_note_animation(parsed_sequence, bpm):
     container_note = st.empty()
@@ -137,9 +135,10 @@ def display_note_animation(parsed_sequence, bpm):
             progress = (elapsed + elapsed_time) / total_duration
             container_progress.progress(min(progress, 1.0))
 
-            # Play tone
-            if note != '-':
-                play_tone(note_freq_base[note] * octave_multipliers[octave], duration)
+            # Play Audio for Current Note
+            audio_data = generate_audio(note, octave, duration)
+            audio_io = play_audio(audio_data)
+            container_audio = st.audio(audio_io, format='audio/wav', start_time=0)
 
             time.sleep(0.05)
 
