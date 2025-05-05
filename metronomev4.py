@@ -117,15 +117,7 @@ def display_note_progress(parsed_sequence, bpm, audio_data):
             image_display.empty()
 
         # Sleep for the duration of the note
-        step = 0.1  # seconds
-        while elapsed_time < total_duration:
-            if stop_flag.is_set():
-                return
-            time_remaining = duration - elapsed_time
-            sleep_time = min(step, time_remaining)
-            if sleep_time > 0:
-                time.sleep(sleep_time)
-            elapsed_time += sleep_time
+        time.sleep(duration)
 
 def play_notes_sequence(parsed_sequence, bpm=60):
     full_wave = np.array([], dtype=np.int16)
@@ -159,7 +151,7 @@ def save_melodies_to_file(melodies, filename='saved_melodies.txt'):
 
 # ---- Streamlit UI ----
 st.set_page_config(layout="wide")
-st.title("🎶 Indian Flute Metronome by Suraj + Melody Generator 🎶")
+st.title("🎶 Indian Flute Metronome + Melody Generator 🎶")
 st.write("Generate and play random melodies or input your own sequence!")
 
 # Layout and Inputs
