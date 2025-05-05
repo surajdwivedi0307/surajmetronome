@@ -4,17 +4,15 @@ import random
 import time
 import threading
 
-# Settings
-saved_melodies = []
+# Setup
 stop_flag = threading.Event()
+saved_melodies = []
 
 note_freq_base = {
     'S': 261.63, 'R': 293.66, 'G': 329.63, 'M': 349.23,
     'P': 392.00, 'D': 440.00, 'N': 493.88
 }
 octave_multipliers = {'low': 0.5, 'medium': 1.0, 'high': 2.0}
-
-# GitHub-hosted images
 image_base_url = "https://raw.githubusercontent.com/surajdwivedi0307/surajmetronome/main/images/"
 
 def parse_notes_input(note_string):
@@ -48,39 +46,45 @@ def parse_notes_input(note_string):
 def bpm_to_duration(bpm, note_length=1):
     return (60.0 / bpm) * note_length
 
-def display_note_progress(parsed_sequence, bpm):
-    note_display = st.empty()
-    timer_display = st.empty()
+def display_note_progress_bar(parsed_sequence, bpm):
+    note_text = st.empty()
+    progress_bar = st.progress(0)
     image_display = st.empty()
 
-    total_notes = len(parsed_sequence)
     total_duration = sum(bpm_to_duration(bpm, duration) for _, duration, _ in parsed_sequence)
-    elapsed_time = 0.0
+    elapsed = 0
 
-    for idx, (note_entry, multiplier, octave) in enumerate(parsed_sequence):
+    for i, (note, duration_mult, octave) in enumerate(parsed_sequence):
         if stop_flag.is_set():
             break
+        duration = bpm_to_duration(bpm, duration_mult)
+        note_label = f"{note} ({octave})" if note != '-' else "Rest"
+        
+        # Update note text
+        note_text.markdown(f"### 🎵 Playing: **{note_label}**")
 
-        duration = bpm_to_duration(bpm, multiplier)
-        elapsed_time += duration
-
-        note_name = f"{note_entry} ({octave})" if note_entry != '-' else "Rest"
-        note_display.markdown(f"## 🎵 Now: **{note_name}**")
-        timer_display.markdown(f"### ⏱️ {elapsed_time:.2f} / {total_duration:.2f} seconds")
-
-        if note_entry in note_freq_base:
-            img_url = f"{image_base_url}bansuri_notes_{note_entry}.png"
-            image_display.image(img_url, caption=f"{note_entry} fingering", use_container_width=True)
+        # Show image
+        if note in note_freq_base:
+            img_url = f"{image_base_url}bansuri_notes_{note}.png"
+            image_display.image(img_url, caption=f"{note} fingering", use_container_width=True)
         else:
             image_display.empty()
 
-        # Visual metronome progress bar using columns
-        cols = st.columns(total_notes)
-        for i, col in enumerate(cols):
-            style = "**:green[■]**" if i == idx else "□"
-            col.markdown(f"<center style='font-size: 24px;'>{style}</center>", unsafe_allow_html=True)
+        # Animate progress bar smoothly
+        steps = 20
+        for step in range(steps):
+            if stop_flag.is_set():
+                break
+            increment = duration / total_duration / steps
+            elapsed += increment
+            progress = min(int((elapsed / total_duration) * 100), 100)
+            progress_bar.progress(progress)
+            time.sleep(duration / steps)
 
-        time.sleep(duration)
+    # Final completion
+    progress_bar.progress(100)
+    note_text.markdown("### ✅ Done!")
+    image_display.empty()
 
 def generate_random_melody(length=12):
     notes = ['S', 'R', 'G', 'M', 'P', 'D', 'N', '-']
@@ -101,39 +105,39 @@ def save_melodies_to_file(melodies, filename='saved_melodies.txt'):
 
 # ---- Streamlit UI ----
 st.set_page_config(layout="wide")
-st.title("🎶 Indian Flute Metronome (Visual Only) 🎶")
-st.write("Generate and visualize random melodies or input your own sequence!")
+st.title("🎶 Indian Flute Metronome (Visual Only)")
+st.write("Visual playback with progress bar and note fingerings")
 
-bpm_input_user = st.number_input("Enter BPM:", min_value=1, max_value=200, value=60, help="Beats per minute for melody speed.")
-user_input = st.text_input("Enter sequence (e.g., SGRG_RSN):", "DS>DP,GRSR,G-GR,GPD_")
+bpm_input_user = st.number_input("🎚️ Enter BPM", min_value=30, max_value=200, value=60)
+user_input = st.text_input("✍️ Enter note sequence (e.g., SGRG_RSN)", "DS>DP,GRSR,G-GR,GPD_")
 
-col1, col2 = st.columns([1, 1])
+col1, col2 = st.columns(2)
 with col1:
-    st.markdown("#### 🎵 Control Panel")
-    if st.button("▶️ Play Notes"):
+    st.markdown("#### ▶️ Playback")
+    if st.button("Play Sequence"):
         stop_flag.clear()
         parsed_user = parse_notes_input(user_input)
-        if not parsed_user:
-            st.error("Invalid input sequence. Please check your notes.")
+        if parsed_user:
+            display_note_progress_bar(parsed_user, bpm_input_user)
         else:
-            display_note_progress(parsed_user, bpm_input_user)
+            st.error("Invalid input.")
 
-with col2:
-    st.markdown("#### 🎶 Melody Generator")
     if st.button("⏹️ Stop"):
         stop_flag.set()
 
-    if st.button("🎲 Generate Random Melody"):
+with col2:
+    st.markdown("#### 🎲 Random Melody")
+    if st.button("Generate Random"):
         stop_flag.clear()
-        random_melody = generate_random_melody()
-        saved_melodies.append(random_melody)
-        st.write(f"**Random Melody:** `{random_melody}`")
-        parsed_random = parse_notes_input(random_melody)
-        display_note_progress(parsed_random, bpm_input_user)
+        rand_melody = generate_random_melody()
+        saved_melodies.append(rand_melody)
+        st.write(f"`{rand_melody}`")
+        parsed = parse_notes_input(rand_melody)
+        display_note_progress_bar(parsed, bpm_input_user)
 
-    if st.button("💾 Save All Generated Melodies"):
+    if st.button("💾 Save All"):
         if saved_melodies:
             save_melodies_to_file(saved_melodies)
-            st.success("All melodies saved to 'saved_melodies.txt'.")
+            st.success("Saved to saved_melodies.txt")
         else:
-            st.warning("No melodies to save yet.")
+            st.warning("No melodies to save.")
