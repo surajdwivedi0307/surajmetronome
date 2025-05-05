@@ -84,6 +84,9 @@ def play_audio_in_streamlit(audio_data):
     buffer = io.BytesIO()
     wavfile.write(buffer, sample_rate, audio_data)
     st.audio(buffer.getvalue(), format='audio/wav')
+
+    # Small delay to ensure Streamlit processes the audio correctly
+    time.sleep(0.5)  # Allow a short delay to ensure the audio is ready
     return buffer
 
 # Update the image folder to GitHub raw URLs
