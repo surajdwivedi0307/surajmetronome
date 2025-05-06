@@ -3,6 +3,8 @@ import numpy as np
 import random
 import time
 import io
+import base64
+import soundfile as sf
 from PIL import Image
 import threading
 
@@ -48,7 +50,7 @@ st.markdown("""
 
 st.title("🎶 Indian Flute Visual Metronome + Melody Generator")
 
-# Utility Functions
+# --- Utility Functions ---
 def parse_notes_input(note_string):
     parsed_sequence = []
     entry = note_string.strip()
@@ -80,6 +82,38 @@ def parse_notes_input(note_string):
 def bpm_to_duration(bpm, note_length=1):
     return (60.0 / bpm) * note_length
 
+def generate_beep(freq=880, duration=0.2, sample_rate=44100):
+    t = np.linspace(0, duration, int(sample_rate * duration), False)
+    tone = 0.5 * np.sin(2 * np.pi * freq * t)
+    buf = io.BytesIO()
+    sf.write(buf, tone, sample_rate, format='WAV')
+    b64 = base64.b64encode(buf.getvalue()).decode()
+    audio_html = f"""
+        <audio autoplay>
+        <source src="data:audio/wav;base64,{b64}" type="audio/wav">
+        </audio>
+    """
+    return audio_html
+
+def show_countdown(seconds=3):
+    countdown_placeholder = st.empty()
+    audio_placeholder = st.empty()
+    for i in range(seconds, 0, -1):
+        countdown_placeholder.markdown(
+            f"<h1 style='text-align:center; color:#e74c3c; font-size:72px;'>⏳ {i}</h1>",
+            unsafe_allow_html=True
+        )
+        audio_html = generate_beep()
+        audio_placeholder.markdown(audio_html, unsafe_allow_html=True)
+        time.sleep(1)
+    countdown_placeholder.markdown(
+        f"<h1 style='text-align:center; color:#2ecc71; font-size:64px;'>🎼 Start!</h1>",
+        unsafe_allow_html=True
+    )
+    time.sleep(0.5)
+    countdown_placeholder.empty()
+    audio_placeholder.empty()
+
 def display_note_animation(parsed_sequence, bpm):
     container_note = st.empty()
     container_next = st.empty()
@@ -101,8 +135,6 @@ def display_note_animation(parsed_sequence, bpm):
             next_n, _, next_octave = parsed_sequence[idx + 1]
             next_note_name = f"{next_n} ({next_octave})" if next_n != '-' else "Rest"
 
-        # Dynamic label showing elapsed and remaining time
-        remaining_time = duration
         start_time = time.time()
         while time.time() - start_time < duration:
             elapsed_time = time.time() - start_time
@@ -125,7 +157,6 @@ def display_note_animation(parsed_sequence, bpm):
 
         elapsed += duration
 
-# Random Melody Generator
 def generate_random_melody(length=12):
     notes = ['S', 'R', 'G', 'M', 'P', 'D', 'N', '-']
     octaves = ['', '>', '<']
@@ -138,7 +169,7 @@ def generate_random_melody(length=12):
         melody += f"{note}{octave}{underscore}{separator}"
     return melody
 
-# --- Streamlit UI Layout ---
+# --- UI Layout ---
 bpm = st.slider("🎚️ Set BPM (Speed)", min_value=40, max_value=180, value=60)
 note_input = st.text_input("✍️ Enter melody sequence (e.g., SGRG_RSN):", "DS>DP,GRSR,G-GR,GPD_")
 
@@ -150,6 +181,7 @@ with col1:
         if not sequence:
             st.error("Invalid note sequence.")
         else:
+            show_countdown(3)
             display_note_animation(sequence, bpm)
 
 with col2:
@@ -158,6 +190,7 @@ with col2:
         melody = generate_random_melody()
         st.success(f"Random Melody: `{melody}`")
         sequence = parse_notes_input(melody)
+        show_countdown(3)
         display_note_animation(sequence, bpm)
 
 if st.button("⏹️ Stop Playback"):
