@@ -2,9 +2,9 @@ import streamlit as st
 import numpy as np
 import random
 import time
-import io
 import threading
 from scipy.io import wavfile
+import io
 
 # Constants
 sample_rate = 44100
@@ -14,7 +14,6 @@ note_freq_base = {
 }
 octave_multipliers = {'low': 0.5, 'medium': 1.0, 'high': 2.0}
 image_base_url = "https://raw.githubusercontent.com/surajdwivedi0307/surajmetronome/main/images/"
-stop_flag = threading.Event()
 
 # Session State
 if "sequence_to_play" not in st.session_state:
@@ -23,6 +22,8 @@ if "bpm" not in st.session_state:
     st.session_state.bpm = 60
 if "countdown_started" not in st.session_state:
     st.session_state.countdown_started = False
+if "is_playing" not in st.session_state:
+    st.session_state.is_playing = False
 
 # Styling
 st.set_page_config(layout="wide", page_title="Flute Metronome", page_icon="🎶")
@@ -122,6 +123,7 @@ def play_audio_in_streamlit(audio_data):
     st.audio(buffer.getvalue(), format='audio/wav')
     return buffer
 
+# Timer function
 def display_note_progress(parsed_sequence, bpm):
     note_display = st.empty()
     timer_display = st.empty()
@@ -131,7 +133,7 @@ def display_note_progress(parsed_sequence, bpm):
     elapsed_time = 0.0
 
     for note_entry, multiplier, octave in parsed_sequence:
-        if stop_flag.is_set():
+        if st.session_state.is_playing == False:
             break
 
         duration = bpm_to_duration(bpm, multiplier)
@@ -164,7 +166,7 @@ note_input = st.text_input("✍️ Enter melody sequence (e.g., SGRG_RSN):", "DS
 col1, col2 = st.columns([1, 1])
 with col1:
     if st.button("▶️ Play Input Sequence"):
-        stop_flag.clear()
+        st.session_state.is_playing = True
         sequence = parse_notes_input(note_input)
         if not sequence:
             st.error("Invalid note sequence.")
@@ -174,7 +176,7 @@ with col1:
 
 with col2:
     if st.button("🎲 Generate & Play Random Melody"):
-        stop_flag.clear()
+        st.session_state.is_playing = True
         melody = generate_random_melody()
         st.success(f"Random Melody: `{melody}`")
         sequence = parse_notes_input(melody)
@@ -182,12 +184,11 @@ with col2:
         st.session_state.countdown_started = True
 
 if st.button("⏹️ Stop Playback"):
-    stop_flag.set()
+    st.session_state.is_playing = False
 
 # Run Countdown and Playback
-if st.session_state.countdown_started and not stop_flag.is_set():
+if st.session_state.countdown_started and st.session_state.is_playing:
     display_note_progress(st.session_state.sequence_to_play, st.session_state.bpm)
     audio_data = play_notes_sequence(st.session_state.sequence_to_play, st.session_state.bpm)
     play_audio_in_streamlit(audio_data)
     st.session_state.countdown_started = False
-
