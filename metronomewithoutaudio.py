@@ -2,11 +2,9 @@ import streamlit as st
 import numpy as np
 import random
 import time
-import io
-from PIL import Image
 import threading
 
-# Settings
+# Constants
 sample_rate = 44100
 note_freq_base = {
     'S': 261.63, 'R': 293.66, 'G': 329.63, 'M': 349.23,
@@ -16,13 +14,18 @@ octave_multipliers = {'low': 0.5, 'medium': 1.0, 'high': 2.0}
 image_base_url = "https://raw.githubusercontent.com/surajdwivedi0307/surajmetronome/main/images/"
 stop_flag = threading.Event()
 
-# Custom CSS Styling
+# Session State
+if "countdown_started" not in st.session_state:
+    st.session_state.countdown_started = False
+if "sequence_to_play" not in st.session_state:
+    st.session_state.sequence_to_play = []
+if "bpm" not in st.session_state:
+    st.session_state.bpm = 60
+
+# Styling
 st.set_page_config(layout="wide", page_title="Flute Metronome", page_icon="🎶")
 st.markdown("""
     <style>
-        body {
-            background-color: #fdfdfd;
-        }
         .block-container {
             padding-top: 2rem;
         }
@@ -80,32 +83,20 @@ def parse_notes_input(note_string):
 def bpm_to_duration(bpm, note_length=1):
     return (60.0 / bpm) * note_length
 
-def generate_beep():
-    return """
-    <audio autoplay>
-        <source src="https://www.soundjay.com/button/sounds/beep-07.mp3" type="audio/mpeg">
-    </audio>
-    """
-
-def show_countdown(seconds=3):
+def show_countdown():
     countdown_placeholder = st.empty()
-    audio_placeholder = st.empty()
-    
-    for i in range(seconds, 0, -1):
+    for i in range(3, 0, -1):
         countdown_placeholder.markdown(
             f"<h1 style='text-align:center; color:#e74c3c; font-size:72px;'>⏳ {i}</h1>",
             unsafe_allow_html=True
         )
-        audio_placeholder.markdown(generate_beep(), unsafe_allow_html=True)
         time.sleep(1)
-
     countdown_placeholder.markdown(
         f"<h1 style='text-align:center; color:#2ecc71; font-size:64px;'>🎼 Start!</h1>",
         unsafe_allow_html=True
     )
     time.sleep(1)
     countdown_placeholder.empty()
-    audio_placeholder.empty()
 
 def display_note_animation(parsed_sequence, bpm):
     container_note = st.empty()
@@ -128,7 +119,6 @@ def display_note_animation(parsed_sequence, bpm):
             next_n, _, next_octave = parsed_sequence[idx + 1]
             next_note_name = f"{next_n} ({next_octave})" if next_n != '-' else "Rest"
 
-        # Dynamic label showing elapsed and remaining time
         remaining_time = duration
         start_time = time.time()
         while time.time() - start_time < duration:
@@ -152,7 +142,7 @@ def display_note_animation(parsed_sequence, bpm):
 
         elapsed += duration
 
-# Random Melody Generator
+# Melody Generator
 def generate_random_melody(length=12):
     notes = ['S', 'R', 'G', 'M', 'P', 'D', 'N', '-']
     octaves = ['', '>', '<']
@@ -166,7 +156,7 @@ def generate_random_melody(length=12):
     return melody
 
 # --- Streamlit UI Layout ---
-bpm = st.slider("🎚️ Set BPM (Speed)", min_value=40, max_value=180, value=60)
+st.session_state.bpm = st.slider("🎚️ Set BPM (Speed)", min_value=40, max_value=180, value=60)
 note_input = st.text_input("✍️ Enter melody sequence (e.g., SGRG_RSN):", "DS>DP,GRSR,G-GR,GPD_")
 
 col1, col2 = st.columns([1, 1])
@@ -177,8 +167,8 @@ with col1:
         if not sequence:
             st.error("Invalid note sequence.")
         else:
-            show_countdown(3)
-            display_note_animation(sequence, bpm)
+            st.session_state.sequence_to_play = sequence
+            st.session_state.countdown_started = True
 
 with col2:
     if st.button("🎲 Generate & Play Random Melody"):
@@ -186,8 +176,14 @@ with col2:
         melody = generate_random_melody()
         st.success(f"Random Melody: `{melody}`")
         sequence = parse_notes_input(melody)
-        show_countdown(3)
-        display_note_animation(sequence, bpm)
+        st.session_state.sequence_to_play = sequence
+        st.session_state.countdown_started = True
 
 if st.button("⏹️ Stop Playback"):
     stop_flag.set()
+
+# Run Countdown and Playback
+if st.session_state.countdown_started and not stop_flag.is_set():
+    show_countdown()
+    display_note_animation(st.session_state.sequence_to_play, st.session_state.bpm)
+    st.session_state.countdown_started = False
